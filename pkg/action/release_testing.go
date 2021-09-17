@@ -33,8 +33,9 @@ import (
 //
 // It provides the implementation of 'helm test'.
 type ReleaseTesting struct {
-	cfg     *Configuration
-	Timeout time.Duration
+	cfg             *Configuration
+	Timeout         time.Duration
+	HookParallelism int
 	// Used for fetching logs from test pods
 	Namespace string
 	Filters   map[string][]string
@@ -88,7 +89,7 @@ func (r *ReleaseTesting) Run(name string) (*release.Release, error) {
 		rel.Hooks = executingHooks
 	}
 
-	if err := r.cfg.execHook(rel, release.HookTest, r.Timeout); err != nil {
+	if err := r.cfg.execHookEvent(rel, release.HookTest, r.Timeout, r.HookParallelism); err != nil {
 		rel.Hooks = append(skippedHooks, rel.Hooks...)
 		r.cfg.Releases.Update(rel)
 		return rel, err
