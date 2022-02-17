@@ -69,6 +69,8 @@ type Upgrade struct {
 	WaitForJobs bool
 	// DisableHooks disables hook processing if set to true.
 	DisableHooks bool
+	// HookParallelism controls the maximum number of hooks to run in parallel
+	HookParallelism int
 	// DryRun controls whether the operation is prepared, but not executed.
 	// If `true`, the upgrade is prepared but not performed.
 	DryRun bool
@@ -365,7 +367,7 @@ func (u *Upgrade) releasingUpgrade(c chan<- resultMessage, upgradedRelease *rele
 	// pre-upgrade hooks
 
 	if !u.DisableHooks {
-		if err := u.cfg.execHook(upgradedRelease, release.HookPreUpgrade, u.Timeout); err != nil {
+		if err := u.cfg.execHookEvent(upgradedRelease, release.HookPreUpgrade, u.Timeout, u.HookParallelism); err != nil {
 			u.reportToPerformUpgrade(c, upgradedRelease, kube.ResourceList{}, fmt.Errorf("pre-upgrade hooks failed: %s", err))
 			return
 		}
@@ -408,7 +410,7 @@ func (u *Upgrade) releasingUpgrade(c chan<- resultMessage, upgradedRelease *rele
 
 	// post-upgrade hooks
 	if !u.DisableHooks {
-		if err := u.cfg.execHook(upgradedRelease, release.HookPostUpgrade, u.Timeout); err != nil {
+		if err := u.cfg.execHookEvent(upgradedRelease, release.HookPostUpgrade, u.Timeout, u.HookParallelism); err != nil {
 			u.reportToPerformUpgrade(c, upgradedRelease, results.Created, fmt.Errorf("post-upgrade hooks failed: %s", err))
 			return
 		}
@@ -473,6 +475,7 @@ func (u *Upgrade) failRelease(rel *release.Release, created kube.ResourceList, e
 		rollin.Wait = true
 		rollin.WaitForJobs = u.WaitForJobs
 		rollin.DisableHooks = u.DisableHooks
+		rollin.HookParallelism = u.HookParallelism
 		rollin.Recreate = u.Recreate
 		rollin.Force = u.Force
 		rollin.Timeout = u.Timeout
